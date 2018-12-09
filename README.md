@@ -10,7 +10,7 @@ The integer arguments of almost all functions can be of any of 4 formats:
 * **binary** &mdash; string with prefix `'0b'` (`'0b010110'`, `'0b0'`, ...);
 * **float** &mdash; usual python float (Why not? `0.0`, `17.`, `-3.`, ...).
 
-You can globaly specify the default output format for arithmetic functions by call `psetmode` or localy for each interface (by their parameter `fmt`).
+You can globally specify the default output format for arithmetic functions by call `psetmode` or locally for each interface (by their parameter `fmt`).
 
 ### Representations
 
@@ -49,9 +49,24 @@ We could just decompose any integer by bytes:
     >>> prepr(3932166)
     ['00111100', '00000000', '00000110']
 
+More verbose way to decode &mdash; use `vrepr()` with object of class `Enc`:
+
+    >>> e = Enc('sethi', [['opc', 31], ['rd', 29], ['opc', 24], ['imm22', 21]])
+
+    >>> vrepr('1700040f', e, borders=True)
+     opc     rd    opc           imm22
+      00   01011   100   0000000000010000001111
+    31-30  29-25  24-22  21-------------------0
+
+    >>> vrepr('1700040f', e, 'h')
+    opc   rd  opc  imm22
+    0x0  0xb  0x4  0x40f
+
+It is convenient to have a separate module that contains all the encodings you often use.
+
 ### Arithmetic
 
-You can globaly specify the signedness and the integer width by `psetmode`:
+You can globally specify the signedness and the integer width by `psetmode`:
 
     >>> from pir import *
 
@@ -63,8 +78,6 @@ You can globaly specify the signedness and the integer width by `psetmode`:
 
     # Signed 8-bit int with decimal output by default
     >>> psetmode(True, 8, 'd')
-    >>> pgetmode()
-    [True, 8, 'd']
     >>> psub('0x100', 15.)
     -15
     >>> psub('0x100', '0b1111', 'b')
@@ -75,7 +88,7 @@ You can globaly specify the signedness and the integer width by `psetmode`:
     >>> psetmode(True, 8, 'd')
     >>> pmul(3, padd(pdiv('f', '0b100'), prem(11, '0x3')))
     15
-    >>> psetbits(15, [3, 4], '0b10')
-    23
+    >>> psetbits(15, [3, 5], '0b110')
+    55
     >>> padd(pintmin(), pintmax())
     -1

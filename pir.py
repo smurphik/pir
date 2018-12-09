@@ -11,6 +11,9 @@ By default integers are signed, integer width is equal 64
 (you can change this by calling the function `psetmode()`).
 """
 
+from textwrap import wrap
+import re
+
 """
 For update:
 
@@ -19,21 +22,20 @@ importlib.reload(sys.modules['pir'])
 from pir import *
 """
 
-from textwrap import wrap
-
 ############################################################
-###                    Representation                    ###
+#                      Representation                      #
 ############################################################
 
 # By default, all integers are signed
-is_signed = True
+_is_signed = True
 
 # By default the integer width is equal to 64
-int_width = 64
+_int_width = 64
 
 # The default output format is hexadecimal
-out_format = 'h'
-ftable = {'d': int, 'h': hex, 'b': bin, 'f': float}
+_out_format = 'h'
+_ftable = {'d': int, 'h': hex, 'b': bin, 'f': float}
+
 
 def psetmode(signed=None, width=None, fmt=None):
     """Set parameters of integers in module:
@@ -43,29 +45,31 @@ def psetmode(signed=None, width=None, fmt=None):
              May be equal:
               'd' - usual integer (decimal),
               'h' - string-hexadecimal begining with '0x',
-              'b' - string-binary begining with '0b',
+              'b' - string-binary beginning with '0b',
               'f' - usual float"""
 
-    global is_signed, int_width, out_format
+    global _is_signed, _int_width, _out_format
 
-    if signed != None:
-        is_signed = bool(signed)
+    if signed is not None:
+        _is_signed = bool(signed)
 
-    if width != None:
+    if width is not None:
         assert width > 0
-        int_width = int(width)
+        _int_width = int(width)
 
     if fmt:
         fmt = fmt.lower()
-        assert fmt in ftable
-        out_format = fmt
+        assert fmt in _ftable
+        _out_format = fmt
+
 
 def pgetmode():
-    return [ is_signed, int_width, out_format ]
+    return [_is_signed, _int_width, _out_format]
+
 
 def pint(a):
     """Convert {float, int, hex, bin} -> int"""
-    if type(a) == type(''):
+    if isinstance(a, str):
         if a[:2] == '0b' or a[:3] == '-0b':
             return int(a, 2)
         else:
@@ -73,66 +77,69 @@ def pint(a):
     else:
         return int(a)
 
+
 def inconv(a):
     """Convert {float, int, hex, bin} -> int;
     value is truncated to the integer width"""
     x = pint(a)
 
     # Truncate
-    x &= ((1<<int_width)-1)
+    x &= ((1 << _int_width)-1)
 
     # Converse unsigned int to signed back
-    if is_signed:
-        if x >= (1<<(int_width-1)):
-            x -= (1<<int_width)
+    if _is_signed and x >= (1 << (_int_width-1)):
+        x -= (1 << _int_width)
 
     return x
 
+
 def outconv(x, fmt=None):
     """Convert positive decimal value according to format `fmt` (if it's given)
-    or default format `out_format` (see `setoutformat()`)"""
-    assert type(x) == type(0)
+    or default format `_out_format` (see `setoutformat()`)"""
+    assert isinstance(x, int)
     assert x >= 0
     if fmt:
-        return ftable[fmt](x)
+        return _ftable[fmt](x)
     else:
-        return ftable[out_format](x)
+        return _ftable[_out_format](x)
+
 
 def c2repr(X, fmt=None):
     """Represent value in a manner 'Two's complement' to given format;
     value is truncated to the integer width
 
-    In [..]: psetmode(True, 4, 'h')
-    In [..]: c2repr(-2)
-    Out[..]: '0xe'
+    >>> psetmode(True, 4, 'h')
+    >>> c2repr(-2)
+    '0xe'
 
-    In [..]: c2repr(-2, 'd')
-    Out[..]: -2
+    >>> c2repr(-2, 'd')
+    -2
 
-    In [..]: c2repr(14, 'd')
-    Out[..]: -2
+    >>> c2repr(14, 'd')
+    -2
 
-    In [..]: psetmode(False, 4, 'h')
-    In [..]: c2repr(-1, 'd')
-    Out[..]: 15"""
+    >>> psetmode(False, 4, 'h')
+    >>> c2repr(-1, 'd')
+    15"""
 
     x = pint(X)
 
     # Truncate
-    x &= ((1<<int_width)-1)
+    x &= ((1 << _int_width)-1)
 
     # Converse unsigned int to signed back
-    if is_signed:
+    if _is_signed:
 
         if not fmt:
-            fmt = out_format
+            fmt = _out_format
         assert fmt in ['d', 'f', 'h', 'b']
 
-        if x >= (1<<(int_width-1)) and fmt in ['d', 'f']:
-            return -outconv((1<<int_width) - x, fmt)
+        if x >= (1 << (_int_width-1)) and fmt in ['d', 'f']:
+            return -outconv((1 << _int_width) - x, fmt)
 
     # Usual formated output
     return outconv(x, fmt)
+
 
 def prepr(X, ends=[], fmt=None):
     """Get bitwise representation of integer `X` by bytes (if list `ends`
@@ -142,24 +149,28 @@ def prepr(X, ends=[], fmt=None):
     ends - list of last bit numbers of every field;
     fmt    - format of output ('d', 'h', 'b' or 'f')
 
-    In [..]: prepr(3932166)
-    Out[..]: ['00111100', '00000000', '00000110']
+    >>> prepr(3932166)
+    ['00111100', '00000000', '00000110']
 
-    In [..]: prepr(3932166, fmt='b')
-    Out[..]: ['0b111100', '0b0', '0b110']
+    >>> prepr(3932166, fmt='b')
+    ['0b111100', '0b0', '0b110']
 
-    In [..]: prepr(3932166, [22, 17, 15, 13, 7])
-    Out[..]: ['01111', '00', '00', '000000', '00000110']
+    >>> prepr(3932166, [22, 17, 15, 13, 7])
+    ['01111', '00', '00', '000000', '00000110']
 
-    In [..]: prepr(3932166, [7, 13, 15, 17, 22], 'h')
-    Out[..]: ['0xf', '0x0', '0x0', '0x0', '0x6']"""
+    >>> prepr(3932166, [7, 13, 15, 17, 22], 'h')
+    ['0xf', '0x0', '0x0', '0x0', '0x6']"""
+
+    # Remove all spaces
+    if isinstance(X, str):
+        X = re.sub(r'\s+', '', X)
 
     # For convenience reverse bitwise representation
     rev_X = bin(pint(X))[-1:1:-1]
 
     if not ends:
         # Just split representation by bytes
-        y = [ x[::-1].zfill(8) for x in wrap(rev_X, 8)[::-1] ]
+        y = [x[::-1].zfill(8) for x in wrap(rev_X, 8)[::-1]]
     else:
         # Add to y all other fields
         y = []
@@ -173,130 +184,243 @@ def prepr(X, ends=[], fmt=None):
         y = y[::-1]
 
     if fmt:
-        return [ outconv(int(x, 2), fmt) for x in y ]
+        return [outconv(int(x, 2), fmt) for x in y]
     else:
         return y
 
 
+class Field:
+    def __init__(self, fname, fbeg, fend):
+        self.fname = fname
+        self.fbeg = fbeg
+        self.fend = fend
+
+    def __str__(self):
+        return '{}[{}:{}]'.format(self.fname, self.fend, self.fbeg)
+
+    def __repr__(self):
+        return self.__str__()
+
+    def borders(self, length=0):
+        """Get string with boundary bit numbers. Whenever possible
+        the string length will be equal to `length`."""
+
+        if self.fbeg == self.fend:
+            return str(self.fbeg)
+        else:
+            dash_num = max(length - len(str(self.fbeg)) - len(str(self.fend)),
+                           1)
+            return str(self.fend) + '-'*dash_num + str(self.fbeg)
+
+
+class Enc:
+    """Encoding of some entity. Consists of the entity name and
+    the list of fields names and their last bit numbers."""
+
+    def __init__(self, name, _fields):
+        self.name = name
+        fields = sorted(_fields, key=lambda x: x[1])
+
+        last_fend = fields[0][1]
+        self.fields = [Field(fields[0][0], 0, last_fend)]
+        for f in fields[1:]:
+            self.fields.append(Field(f[0], last_fend+1, f[1]))
+            last_fend = f[1]
+
+    def __str__(self):
+        return '{}: {}'.format(self.name, ', '.join(map(str,
+                                                        self.fields[::-1])))
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __iter__(self):
+        for x in self.fields:
+            yield x
+        raise StopIteration
+
+
+def vrepr(X, enc, fmt=None, borders=False, ret_string=False):
+    """Example:
+
+    >>> e = Enc('sethi', [['opc', 31], ['rd', 29], ['opc', 24], ['imm22', 21]])
+    >>> vrepr('17 00 04 0f', e)
+    opc    rd   opc          imm22
+     00  01011  100  0000000000010000001111
+
+    >>> vrepr('1700040f', e, 'h')
+    opc   rd  opc  imm22
+    0x0  0xb  0x4  0x40f
+
+    >>> vrepr('1700040f', e, borders=True)
+     opc     rd    opc           imm22
+      00   01011   100   0000000000010000001111
+    31-30  29-25  24-22  21-------------------0"""
+
+    # Collect data
+    fields = list(enc)[::-1]
+    decomp = prepr(X, [x.fend for x in fields], fmt)
+
+    # Calc minimum lengths of borders strings
+    if borders:
+        bord_str_lens = [len(f.borders()) for f in fields]
+    else:
+        bord_str_lens = [0]*len(fields)
+
+    # Calc lengths of fields strings
+    str_lens = []
+    for f, d, bl in zip(fields, decomp, bord_str_lens):
+        str_lens.append(max(len(f.fname), bl, len(str(d))))
+
+    # Make output string
+    s = ['  '.join(f.fname.center(l) for f, l in zip(fields, str_lens))]
+    s += ['  '.join(str(d).center(l) for d, l in zip(decomp, str_lens))]
+    if borders:
+        s += ['  '.join(f.borders(l) for f, l in zip(fields, str_lens))]
+    s = '\n'.join(s)
+
+    # Output
+    if ret_string:
+        return s
+    else:
+        print(s)
+
+
 ############################################################
-###                      Arithmetic                      ###
+#                        Arithmetic                        #
 ############################################################
 
 def padd(a1, a2, fmt=None):
     """Sum of integers"""
     return c2repr(inconv(a1) + inconv(a2), fmt)
 
+
 def psub(a1, a2, fmt=None):
     """Subtraction of integers"""
     return c2repr(inconv(a1) - inconv(a2), fmt)
+
 
 def pmul(a1, a2, fmt=None):
     """Multiplication of integers"""
     return c2repr(inconv(a1) * inconv(a2), fmt)
 
+
 def pdiv(a1, a2, fmt=None):
     """Division of integers"""
     return c2repr(inconv(a1) // inconv(a2), fmt)
+
 
 def pdivf(a1, a2):
     """Division of integers with float result"""
     return inconv(a1) / inconv(a2)
 
+
 def prem(a1, a2, fmt=None):
     """Remainder of the division of integers"""
     return c2repr(inconv(a1) % inconv(a2), fmt)
+
 
 def pls(a, i, fmt=None):
     """Logical left shift of integers"""
     return c2repr(inconv(a) << inconv(i), fmt)
 
+
 def prs(a, i, fmt=None):
     """Logical right shift of integers"""
     return c2repr(inconv(a) >> inconv(i), fmt)
+
 
 def pand(a1, a2, fmt=None):
     """Bitwise AND"""
     return c2repr(inconv(a1) & inconv(a2), fmt)
 
+
 def por(a1, a2, fmt=None):
     """Bitwise OR"""
     return c2repr(inconv(a1) | inconv(a2), fmt)
+
 
 def pxor(a1, a2, fmt=None):
     """Bitwise XOR"""
     return c2repr(inconv(a1) ^ inconv(a2), fmt)
 
+
 def pmask(l, h, fmt=None):
     """Get mask. Example:
 
-    In [..]: pmask(1, 3, 'b')
-    Out[..]: '0b1110'"""
-    return c2repr(((-1)<<inconv(l)) & (~((-1)<<(inconv(h)+1))), fmt)
+    >>> pmask(1, 3, 'b')
+    '0b1110'"""
+    return c2repr(((-1) << inconv(l)) & (~((-1) << (inconv(h)+1))), fmt)
+
 
 def pgetbits(a, r, fmt=None):
     """Get bit or bits range of integer. Example:
 
-    In [..]: c2repr(694, 'b')
-    Out[..]: '0b1010110110'
+    >>> c2repr(694, 'b')
+    '0b1010110110'
 
-    In [..]: pgetbits(694, 7, 'd')
-    Out[..]: 1
+    >>> pgetbits(694, 7, 'd')
+    1
 
-    In [..]: pgetbits(694, [3, 7], 'b')
-    Out[..]: '0b10110'"""
-    if type(r) == type(0):
+    >>> pgetbits(694, [3, 7], 'b')
+    '0b10110'"""
+    if isinstance(r, int):
         return c2repr((inconv(a) & (1<<r)) >> r, fmt)
     else:
         return c2repr((inconv(a) & pmask(r[0], r[1], 'd')) >> r[0], fmt)
 
+
 def psetbits(a, r, v=-1, fmt=None):
     """Assign the value `v` to the bits specified by `r`. Example:
 
-    In [..]: c2repr(694, 'b')
-    Out[..]: '0b1010110110'
+    >>> c2repr(694, 'b')
+    '0b1010110110'
 
-    In [..]: psetbits(694, 1, 0, 'b')
-    Out[..]: '0b1010110100'
+    >>> psetbits(694, 1, 0, 'b')
+    '0b1010110100'
 
-    In [..]: psetbits(694, [2, 7], fmt='b')
-    Out[..]: '0b1011111110'
+    >>> psetbits(694, [2, 7], fmt='b')
+    '0b1011111110'
 
-    In [..]: psetbits(694, [2, 7], '0b010101', 'b')
-    Out[..]: '0b1001010110'"""
-    if type(r) == type(0):
+    >>> psetbits(694, [2, 7], '0b010101', 'b')
+    '0b1001010110'"""
+    if isinstance(r, int):
         v_mask = 1 << r
-        return c2repr( (inconv(a) & (~v_mask))
-                       | (inconv(v) << r) & v_mask, fmt)
+        return c2repr((inconv(a) & (~v_mask))
+                      | (inconv(v) << r) & v_mask, fmt)
     else:
         v_mask = pmask(r[0], r[1], 'd')
-        return c2repr( (inconv(a) & (~v_mask))
-                       | (inconv(v) << r[0]) & v_mask, fmt)
+        return c2repr((inconv(a) & (~v_mask))
+                      | (inconv(v) << r[0]) & v_mask, fmt)
+
 
 def pdropbits(a, r, fmt=None):
     """Set bits to zero (it is psetbits(a, r, v=0, fmt))"""
     return psetbits(a, r, 0, fmt)
 
+
 def pintmin(fmt=None):
     """Get minimum integer according to current mode"""
-    if is_signed:
-        return c2repr(1<<(int_width-1), fmt)
+    if _is_signed:
+        return c2repr(1 << (_int_width-1), fmt)
     else:
         return c2repr(0, fmt)
 
+
 def pintmax(fmt=None):
     """Get maximum integer according to current mode"""
-    if is_signed:
-        return c2repr(~(1<<(int_width-1)), fmt)
+    if _is_signed:
+        return c2repr(~(1 << (_int_width-1)), fmt)
     else:
         return c2repr(-1, fmt)
 
 
 ############################################################
-###                         Test                         ###
+#                           Test                           #
 ############################################################
 
-def testpir():
-    s, w, f = is_signed, int_width, out_format
+def _testpir():
+    s, w, f = pgetmode()
 
     psetmode(True, 64, 'h')
     assert ( prepr(3932166) == ['00111100', '00000000', '00000110'] )
@@ -355,6 +479,25 @@ def testpir():
     assert ( psetbits(694, [2, 7], fmt='h') == '0x2fe' )
     assert ( psetbits(694, [2, 7], '0b010101', 'b') == '0b1001010110' )
     assert ( pdropbits('0b10100', 2, 'd') == 16 )
+    psetmode(fmt='h')
+    e = Enc('sethi', [['opc', 31], ['rd', 29], ['opc', 24], ['imm22', 21]])
+    s = '\n'.join([vrepr('17 00 04 0f', e, ret_string=True),
+                   vrepr('1700040f', e, 'h', ret_string=True),
+                   vrepr('1700040f', e, 'd', ret_string=True),
+                   vrepr('1700040f', e, borders=True, ret_string=True)])
+    assert ( s == '\n'.join(['opc    rd   opc          imm22         ', 
+                             ' 00  01011  100  0000000000010000001111',
+                             'opc   rd  opc  imm22',
+                             '0x0  0xb  0x4  0x40f',
+                             'opc  rd  opc  imm22',
+                             ' 0   11   4    1039',
+                             ' opc     rd    opc           imm22         ',
+                             '  00   01011   100   0000000000010000001111',
+                             '31-30  29-25  24-22  21-------------------0']) )
+    e = Enc('someth', [['d', 7], ['ccccc', 4], ['B', 3], ['A', 0]])
+    s = vrepr('a5', e, ret_string=True)
+    assert ( s == '\n'.join([' d   ccccc   B   A',
+                             '101    0    010  1']) )
 
     psetmode(s, w, f)
 
