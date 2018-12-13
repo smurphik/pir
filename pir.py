@@ -69,7 +69,13 @@ def pgetmode():
 
 def pint(a):
     """Convert {float, int, hex, bin} -> int"""
+
     if isinstance(a, str):
+
+        # Remove all spaces
+        if isinstance(a, str):
+            a = re.sub(r'\s+', '', a)
+
         if a[:2] == '0b' or a[:3] == '-0b':
             return int(a, 2)
         else:
@@ -104,7 +110,7 @@ def outconv(x, fmt=None):
         return _ftable[_out_format](x)
 
 
-def c2repr(X, fmt=None):
+def c2repr(val, fmt=None):
     """Represent value in a manner 'Two's complement' to given format;
     value is truncated to the integer width
 
@@ -122,7 +128,7 @@ def c2repr(X, fmt=None):
     >>> c2repr(-1, 'd')
     15"""
 
-    x = pint(X)
+    x = pint(val)
 
     # Truncate
     x &= ((1 << _int_width)-1)
@@ -132,22 +138,22 @@ def c2repr(X, fmt=None):
 
         if not fmt:
             fmt = _out_format
-        assert fmt in ['d', 'f', 'h', 'b']
+        assert fmt in ('d', 'f', 'h', 'b')
 
-        if x >= (1 << (_int_width-1)) and fmt in ['d', 'f']:
+        if x >= (1 << (_int_width-1)) and fmt in ('d', 'f'):
             return -outconv((1 << _int_width) - x, fmt)
 
     # Usual formated output
     return outconv(x, fmt)
 
 
-def prepr(X, ends=[], fmt=None):
-    """Get bitwise representation of integer `X` by bytes (if list `ends`
+def prepr(val, ends=(), fmt=None):
+    """Get bitwise representation of integer `val` by bytes (if list `ends`
     is empty) or by fields (if list `ends` determine boarders of fields).
 
-    X    - integer in any form (int, hex, bin or float);
+    val  - integer in any form (int, hex, bin or float);
     ends - list of last bit numbers of every field;
-    fmt    - format of output ('d', 'h', 'b' or 'f')
+    fmt  - format of output ('d', 'h', 'b' or 'f')
 
     >>> prepr(3932166)
     ['00111100', '00000000', '00000110']
@@ -155,29 +161,25 @@ def prepr(X, ends=[], fmt=None):
     >>> prepr(3932166, fmt='b')
     ['0b111100', '0b0', '0b110']
 
-    >>> prepr(3932166, [22, 17, 15, 13, 7])
+    >>> prepr(3932166, (22, 17, 15, 13, 7))
     ['01111', '00', '00', '000000', '00000110']
 
-    >>> prepr(3932166, [7, 13, 15, 17, 22], 'h')
+    >>> prepr(3932166, (7, 13, 15, 17, 22), 'h')
     ['0xf', '0x0', '0x0', '0x0', '0x6']"""
 
-    # Remove all spaces
-    if isinstance(X, str):
-        X = re.sub(r'\s+', '', X)
-
     # For convenience reverse bitwise representation
-    rev_X = bin(pint(X))[-1:1:-1]
+    rev_val = bin(pint(val))[-1:1:-1]
 
     if not ends:
         # Just split representation by bytes
-        y = [x[::-1].zfill(8) for x in wrap(rev_X, 8)[::-1]]
+        y = [x[::-1].zfill(8) for x in wrap(rev_val, 8)[::-1]]
     else:
         # Add to y all other fields
         y = []
         i = 0
         ends = sorted(ends)
         for j in ends:
-            y.append(rev_X[i:j+1][::-1].zfill(j+1-i))
+            y.append(rev_val[i:j+1][::-1].zfill(j+1-i))
             i = j+1
 
         # Reverse back fields order
@@ -194,9 +196,15 @@ class Field:
         self.fname = fname
         self.fbeg = fbeg
         self.fend = fend
+        self.verbose = {}
+        self.invalid = set()
+        self.only_true = set()
 
     def __str__(self):
-        return '{}[{}:{}]'.format(self.fname, self.fend, self.fbeg)
+        if self.fbeg != self.fend:
+            return '{}[{}:{}]'.format(self.fname, self.fend, self.fbeg)
+        else:
+            return '{}[{}]'.format(self.fname, self.fbeg)
 
     def __repr__(self):
         return self.__str__()
@@ -212,14 +220,23 @@ class Field:
                            1)
             return str(self.fend) + '-'*dash_num + str(self.fbeg)
 
+    def add_verbose(self, fvalue, fvalue_name):
+        self.verbose[pint(fvalue)] = fvalue_name
+
+    def add_invalid(self, fvalue):
+        self.invalid.add(pint(fvalue))
+
+    def add_only_true(self, fvalue):
+        self.only_true.add(pint(fvalue))
+
 
 class Enc:
     """Encoding of some entity. Consists of the entity name and
     the list of fields names and their last bit numbers."""
 
-    def __init__(self, name, _fields):
+    def __init__(self, name, fields_unsorted):
         self.name = name
-        fields = sorted(_fields, key=lambda x: x[1])
+        fields = sorted(fields_unsorted, key=lambda x: x[1])
 
         last_fend = fields[0][1]
         self.fields = [Field(fields[0][0], 0, last_fend)]
@@ -239,27 +256,52 @@ class Enc:
             yield x
         raise StopIteration
 
+    def field(self, fname_lbit):
+        for f in self.fields:
+            if f.fend == fname_lbit[1]:
+                assert f.fname == fname_lbit[0]
+                return f
 
-def vrepr(X, enc, fmt=None, borders=False, ret_string=False):
-    """Example:
 
-    >>> e = Enc('sethi', [['opc', 31], ['rd', 29], ['opc', 24], ['imm22', 21]])
-    >>> vrepr('17 00 04 0f', e)
-    opc    rd   opc          imm22
-     00  01011  100  0000000000010000001111
+def vrepr(val, enc, fmt=None, borders=False, ret_string=False):
+    """
+    Consider the code `1700040f` of Sparc operation `sethi` for example:
 
-    >>> vrepr('1700040f', e, 'h')
-    opc   rd  opc  imm22
-    0x0  0xb  0x4  0x40f
+      >>> e = Enc('sethi', (('opc', 31), ('rd', 29),
+                            ('opc', 24), ('imm22', 21)))
+      >>> vrepr('1700040f', e, borders=True)
+       opc     rd    opc           imm22
+        00   01011   100   0000000000010000001111
+      31-30  29-25  24-22  21-------------------0
 
-    >>> vrepr('1700040f', e, borders=True)
-     opc     rd    opc           imm22
-      00   01011   100   0000000000010000001111
-    31-30  29-25  24-22  21-------------------0"""
+      >>> vrepr('17 00 04 0f', e)
+      opc    rd   opc          imm22
+       00  01011  100  0000000000010000001111
+
+    Add checker of opcode and verbose values:
+
+      >>> e.field(('opc', 31)).add_only_true(0)
+      >>> e.field(('rd', 29)).add_verbose(8, 'eight')
+      >>> e.field(('rd', 29)).add_verbose(9, 'nine')
+
+      >>> vrepr('1700040f', e, 'h')
+      opc   rd  opc  imm22
+      0x0  0xb  0x4  0x40f
+
+    Spoil code to see error message and verbose value of field `rd`:
+
+      >>> vrepr(psetbits('1700040f', (25, 30), '0b101000'), e, 'h')
+      opc   rd  opc  imm22
+      0x1  0x8  0x4  0x40f
+
+      Error! Wrong code: opc[31:30] = 0x1
+      Valid codes: 0x0
+
+      rd[29:25]:   eight"""
 
     # Collect data
     fields = list(enc)[::-1]
-    decomp = prepr(X, [x.fend for x in fields], fmt)
+    decomp = prepr(val, (x.fend for x in fields), fmt)
 
     # Calc minimum lengths of borders strings
     if borders:
@@ -278,6 +320,42 @@ def vrepr(X, enc, fmt=None, borders=False, ret_string=False):
     if borders:
         s += ['  '.join(f.borders(l) for f, l in zip(fields, str_lens))]
     s = '\n'.join(s)
+
+    if fmt:
+        # Any -> int
+        decomp_int = [pint(d) for d in decomp]
+    else:
+        # Binary without leading '0b' -> int
+        decomp_int = [int(d, 2) for d in decomp]
+        fmt = 'b'
+
+    # Check only true
+    for f, i, d in zip(fields, decomp_int, decomp):
+        if f.only_true and i not in f.only_true:
+            s += '\n\nError! Wrong code: {} = {}'.format(f, d)
+            s += '\nValid codes: {}'.format(', '.join((str(outconv(x, fmt))
+                                                       for x in f.only_true)))
+
+    # Check invalids
+    for f, i, d in zip(fields, decomp_int, decomp):
+        if i in f.invalid:
+            s += '\n\nError! Invalid value: {} = {}'.format(f, d)
+
+    # Over encoding warning
+    last_bit = fields[0].fend
+    mask = pmask(0, last_bit)
+    remainder = pint(prs(psub(val, pand(val, mask)), last_bit+1))
+    if remainder:
+        s += '\n\nWarning! There are significant bits higher than' \
+             ' {}: {}'.format(last_bit, outconv(remainder, fmt))
+
+    # Check verbose values
+    vs = '\n'
+    for f, i in zip(fields, decomp_int):
+        if i in f.verbose:
+            vs += '\n{}:   {}'.format(f, f.verbose[i])
+    if len(vs) > 1:
+        s += vs
 
     # Output
     if ret_string:
@@ -353,6 +431,10 @@ def pmask(l, h, fmt=None):
     return c2repr(((-1) << inconv(l)) & (~((-1) << (inconv(h)+1))), fmt)
 
 
+def pinv(a, fmt=None):
+    """Bitwise inversion (or, XOR with -1)"""
+    return pxor(a, -1)
+
 def pgetbits(a, r, fmt=None):
     """Get bit or bits range of integer. Example:
 
@@ -362,7 +444,7 @@ def pgetbits(a, r, fmt=None):
     >>> pgetbits(694, 7, 'd')
     1
 
-    >>> pgetbits(694, [3, 7], 'b')
+    >>> pgetbits(694, (3, 7), 'b')
     '0b10110'"""
     if isinstance(r, int):
         return c2repr((inconv(a) & (1<<r)) >> r, fmt)
@@ -379,10 +461,10 @@ def psetbits(a, r, v=-1, fmt=None):
     >>> psetbits(694, 1, 0, 'b')
     '0b1010110100'
 
-    >>> psetbits(694, [2, 7], fmt='b')
+    >>> psetbits(694, (2, 7), fmt='b')
     '0b1011111110'
 
-    >>> psetbits(694, [2, 7], '0b010101', 'b')
+    >>> psetbits(694, (2, 7), '0b010101', 'b')
     '0b1001010110'"""
     if isinstance(r, int):
         v_mask = 1 << r
@@ -429,10 +511,10 @@ def _testpir():
     assert ( prepr('0b1111000000000000000110')
              == ['00111100', '00000000', '00000110'] )
     assert ( prepr(3932166.) == ['00111100', '00000000', '00000110'] )
-    assert ( prepr(3932166, [7, 13, 15, 17, 22])
+    assert ( prepr(3932166, (7, 13, 15, 17, 22))
              == ['01111', '00', '00', '000000', '00000110'] )
     assert ( prepr(3932166, fmt='b') == ['0b111100', '0b0', '0b110'] )
-    assert ( prepr(3932166, [7, 13, 15, 17, 22], 'h')
+    assert ( prepr(3932166, (7, 13, 15, 17, 22), 'h')
              == ['0xf', '0x0', '0x0', '0x0', '0x6'] )
     assert ( psub('0b100000', padd('a', 11)) == '0xb' )
     psetmode(fmt='b')
@@ -474,18 +556,22 @@ def _testpir():
     assert ( pand(204, 694, 'h') == '0x84' and por(204, 694, 'h') == '0x2fe' )
     assert ( pxor(204, 694, 'h') == '0x27a' and pmask(1, 3, 'b') == '0b1110' )
     assert ( pgetbits(694, 7, 'd') == 1 )
-    assert ( pgetbits(694, [3, 7], 'b') == '0b10110' )
+    assert ( pgetbits(694, (3, 7), 'b') == '0b10110' )
     assert ( psetbits(694, 1, 0, 'h') == '0x2b4' )
-    assert ( psetbits(694, [2, 7], fmt='h') == '0x2fe' )
-    assert ( psetbits(694, [2, 7], '0b010101', 'b') == '0b1001010110' )
+    assert ( psetbits(694, (2, 7), fmt='h') == '0x2fe' )
+    assert ( psetbits(694, (2, 7), '0b010101', 'b') == '0b1001010110' )
     assert ( pdropbits('0b10100', 2, 'd') == 16 )
-    psetmode(fmt='h')
-    e = Enc('sethi', [['opc', 31], ['rd', 29], ['opc', 24], ['imm22', 21]])
-    s = '\n'.join([vrepr('17 00 04 0f', e, ret_string=True),
+    psetmode(False, 8, 'h')
+    assert ( pinv(0) == '0xff' and pinv(1) == '0xfe' and pinv(-2) == '0x1' )
+    psetmode(True)
+    assert ( pinv(0) == '0xff' and pinv(1) == '0xfe' and pinv(-2) == '0x1' )
+    psetmode(width=64)
+    e = Enc('sethi', (('opc', 31), ('rd', 29), ('opc', 24), ('imm22', 21)))
+    s = '\n'.join((vrepr('17 00 04 0f', e, ret_string=True),
                    vrepr('1700040f', e, 'h', ret_string=True),
                    vrepr('1700040f', e, 'd', ret_string=True),
-                   vrepr('1700040f', e, borders=True, ret_string=True)])
-    assert ( s == '\n'.join(['opc    rd   opc          imm22         ', 
+                   vrepr('1700040f', e, borders=True, ret_string=True)))
+    assert ( s == '\n'.join(('opc    rd   opc          imm22         ', 
                              ' 00  01011  100  0000000000010000001111',
                              'opc   rd  opc  imm22',
                              '0x0  0xb  0x4  0x40f',
@@ -493,11 +579,37 @@ def _testpir():
                              ' 0   11   4    1039',
                              ' opc     rd    opc           imm22         ',
                              '  00   01011   100   0000000000010000001111',
-                             '31-30  29-25  24-22  21-------------------0']) )
-    e = Enc('someth', [['d', 7], ['ccccc', 4], ['B', 3], ['A', 0]])
+                             '31-30  29-25  24-22  21-------------------0')) )
+    e.field(('opc', 31)).add_only_true(0)
+    e.field(('opc', 24)).add_verbose('0b100', 'four')
+    e.field(('opc', 31)).add_invalid(1.)
+    e.field(('rd', 29)).add_invalid(1.)
+    e.field(('imm22', 21)).add_verbose('0b100', 'four')
+    s = '\n'.join((vrepr('1700040f', e, ret_string=True),
+                   vrepr(padd('1700040f', 5<<30), e, ret_string=True),
+                   vrepr(padd('1700040f', 7<<31), e, ret_string=True)))
+    assert ( s == '\n'.join(('opc    rd   opc          imm22         ',
+                             ' 00  01011  100  0000000000010000001111',
+                             '\nopc[24:22]:   four',
+                             'opc    rd   opc          imm22         ',
+                             ' 01  01011  100  0000000000010000001111',
+                             '\nError! Wrong code: opc[31:30] = 01',
+                             'Valid codes: 0b0',
+                             '\nError! Invalid value: opc[31:30] = 01',
+                             '\nWarning! There are significant bits' \
+                                                        ' higher than 31: 0b1',
+                             '\nopc[24:22]:   four',
+                             'opc    rd   opc          imm22         ',
+                             ' 10  01011  100  0000000000010000001111',
+                             '\nError! Wrong code: opc[31:30] = 10',
+                             'Valid codes: 0b0',
+                             '\nWarning! There are significant bits' \
+                                                        ' higher than 31: 0b11',
+                             '\nopc[24:22]:   four')) )
+    e = Enc('someth', (('d', 7), ('ccccc', 4), ('B', 3), ('A', 0)))
     s = vrepr('a5', e, ret_string=True)
-    assert ( s == '\n'.join([' d   ccccc   B   A',
-                             '101    0    010  1']) )
+    assert ( s == '\n'.join((' d   ccccc   B   A',
+                             '101    0    010  1')) )
 
     psetmode(s, w, f)
 

@@ -102,3 +102,9 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Encodigns lib (Top secret)
+epir.py
+
+TODO
+

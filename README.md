@@ -32,10 +32,10 @@ You can globally specify the default output format for arithmetic functions by c
 
 Meaning of `prepr` by example. The operation `sethi  %hi(0x103c00), %o3` (see Sparc Instruction Set) is encoded to `1700040f`. We can clearly expand the code instructions on its fields. For this we need to know the numbers of the last bits of all fields:
 
-    >>> prepr('1700040f', [31, 29, 24, 21])
+    >>> prepr('1700040f', (31, 29, 24, 21))
     ['00', '01011', '100', '0000000000010000001111']
 
-    >>> prepr('1700040f', [31, 29, 24, 21], 'h')
+    >>> prepr('1700040f', (31, 29, 24, 21), 'h')
     ['0x0', '0xb', '0x4', '0x40f']
 
 Why `'0x40f'` and not `0x103c00`? It's ok. `sethi` sets just 22 high bits:
@@ -51,16 +51,21 @@ We could just decompose any integer by bytes:
 
 More verbose way to decode &mdash; use `vrepr()` with object of class `Enc`:
 
-    >>> e = Enc('sethi', [['opc', 31], ['rd', 29], ['opc', 24], ['imm22', 21]])
+    >>> e = Enc('sethi', (('opc', 31), ('rd', 29), ('opc', 24), ('imm22', 21)))
 
     >>> vrepr('1700040f', e, borders=True)
      opc     rd    opc           imm22
       00   01011   100   0000000000010000001111
     31-30  29-25  24-22  21-------------------0
 
+    >>> e.field(('opc', 31)).add_only_true(0)
+    >>> e.field(('rd', 29)).add_verbose(11, 'eleven')
+
     >>> vrepr('1700040f', e, 'h')
     opc   rd  opc  imm22
     0x0  0xb  0x4  0x40f
+
+    rd[29:25]:   eleven
 
 It is convenient to have a separate module that contains all the encodings you often use.
 
@@ -88,7 +93,7 @@ You can globally specify the signedness and the integer width by `psetmode`:
     >>> psetmode(True, 8, 'd')
     >>> pmul(3, padd(pdiv('f', '0b100'), prem(11, '0x3')))
     15
-    >>> psetbits(15, [3, 5], '0b110')
+    >>> psetbits(15, (3, 5), '0b110')
     55
     >>> padd(pintmin(), pintmax())
     -1
