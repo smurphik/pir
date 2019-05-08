@@ -1,3 +1,5 @@
+#! /usr/bin/env python3
+
 """
 [P]ython [I]nteger [R]epresentations & Arithmetic Library
 
@@ -168,7 +170,8 @@ def prepr(val, ends=(), fmt=None):
     ['0xf', '0x0', '0x0', '0x0', '0x6']"""
 
     # For convenience reverse bitwise representation
-    rev_val = bin(pint(val))[-1:1:-1]
+    rev_val = c2repr(pint(val), 'b')[-1:1:-1]
+    #rev_val = bin(pint(val))[-1:1:-1]
 
     if not ends:
         # Just split representation by bytes
@@ -200,25 +203,22 @@ class Field:
         self.invalid = set()
         self.only_true = set()
 
-    def __str__(self):
+    def __repr__(self):
         if self.fbeg != self.fend:
             return '{}[{}:{}]'.format(self.fname, self.fend, self.fbeg)
         else:
             return '{}[{}]'.format(self.fname, self.fbeg)
-
-    def __repr__(self):
-        return self.__str__()
 
     def borders(self, length=0):
         """Get string with boundary bit numbers. Whenever possible
         the string length will be equal to `length`."""
 
         if self.fbeg == self.fend:
-            return str(self.fbeg)
+            return str(self.fbeg).center(length)
         else:
             dash_num = max(length - len(str(self.fbeg)) - len(str(self.fend)),
                            1)
-            return str(self.fend) + '-'*dash_num + str(self.fbeg)
+            return '{}{}{}'.format(self.fend, '-'*dash_num, self.fbeg)
 
     def add_verbose(self, fvalue, fvalue_name):
         self.verbose[pint(fvalue)] = fvalue_name
@@ -244,12 +244,9 @@ class Enc:
             self.fields.append(Field(f[0], last_fend+1, f[1]))
             last_fend = f[1]
 
-    def __str__(self):
+    def __repr__(self):
         return '{}: {}'.format(self.name, ', '.join(map(str,
                                                         self.fields[::-1])))
-
-    def __repr__(self):
-        return self.__str__()
 
     def __iter__(self):
         for x in self.fields:
@@ -333,8 +330,8 @@ def vrepr(val, enc, fmt=None, borders=False, ret_string=False):
     for f, i, d in zip(fields, decomp_int, decomp):
         if f.only_true and i not in f.only_true:
             s += '\n\nError! Wrong code: {} = {}'.format(f, d)
-            s += '\nValid codes: {}'.format(', '.join((str(outconv(x, fmt))
-                                                       for x in f.only_true)))
+            s += '\nValid codes: {}'.format(', '.join(str(outconv(x, fmt))
+                                                      for x in f.only_true))
 
     # Check invalids
     for f, i, d in zip(fields, decomp_int, decomp):
@@ -610,6 +607,18 @@ def _testpir():
     s = vrepr('a5', e, ret_string=True)
     assert ( s == '\n'.join((' d   ccccc   B   A',
                              '101    0    010  1')) )
+    assert len(prepr(-13)) == 8
+    assert prepr(-13)[-1] == '11110011'
+    assert prepr(-13)[-2] == prepr(-13)[0] == '11111111'
+    e = Enc('bla-bla', (('long_long_name', 31), ('oth_name', 30)))
+    s = vrepr(151330522, e, borders=True, ret_string=True)
+    assert s == '\n'.join(('long_long_name              oth_name           ',
+                           '      0         0001001000001010001111011011010',
+                           '      31        30----------------------------0'))
 
     psetmode(s, w, f)
+    print('Successfully tested')
+
+if __name__ == '__main__':
+    _testpir()
 
