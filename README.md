@@ -2,6 +2,12 @@
 
 This tool may be useful to system software developers (for example, compiler or binutils developers). Here are functions for representing integers in a convenient form and functions for arithmetic over integers of arbitrary format.
 
+### Install
+
+    $ git clone https://github.com/smurphik/pir
+    $ cd pir/
+    $ sudo python3 setup.py install clean
+
 ### Formats
 
 The integer arguments of almost all functions can be of any of 4 formats:
