@@ -4,9 +4,13 @@ This tool may be useful to system software developers (for example, compiler or 
 
 ### Install
 
-    $ git clone https://github.com/smurphik/pir
-    $ cd pir/
+    $ git clone https://github.com/smurphik/pirep
+    $ cd pirep
     $ sudo python3 setup.py install clean
+
+Alternative way:
+
+    $ sudo pip3 install pirep
 
 ### Formats
 

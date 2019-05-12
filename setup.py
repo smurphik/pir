@@ -33,7 +33,7 @@ setup(
     version = '0.0.0',
     author = 'Denis Stepnov',
     author_email = 'stepnovdenis@gmail.com',
-    url = 'https://github.com/smurphik/pir',
+    url = 'https://github.com/smurphik/pirep',
     description = 'Python Integer Representations & Arithmetic Library',
     long_description = read('README.md'),
     long_description_content_type = 'text/markdown',
