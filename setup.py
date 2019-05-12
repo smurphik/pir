@@ -28,7 +28,7 @@ def read(fname):
         return f.read()
 
 setup(
-    name = 'pir',
+    name = 'pirep',
     fullname = 'Python Integer Representations & Arithmetic Library',
     version = '0.0.0',
     author = 'Denis Stepnov',
@@ -39,7 +39,7 @@ setup(
     long_description_content_type = 'text/markdown',
     license = 'MIT',
     keywords = 'field bitwise representation arithmetic',
-    py_modules = ['pir'],
+    py_modules = ['pirep'],
     cmdclass = {'clean': CleanCommand},
     classifiers = [
         'Development Status :: 3 - Alpha',

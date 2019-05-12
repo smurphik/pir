@@ -22,7 +22,7 @@ You can globally specify the default output format for arithmetic functions by c
 
 `c2repr` gives two's complement representation in any output format in accordance with the current signedness and int width (signed 64-bit by default).
 
-    >>> from pir import *
+    >>> from pirep import *
 
     >>> c2repr(5, 'b')
     '0b101'
@@ -79,7 +79,7 @@ It is convenient to have a separate module that contains all the encodings you o
 
 You can globally specify the signedness and the integer width by `psetmode`:
 
-    >>> from pir import *
+    >>> from pirep import *
 
     # Default mode: signed, 64-bit, hexadecimal default output
     >>> pgetmode()
@@ -94,7 +94,7 @@ You can globally specify the signedness and the integer width by `psetmode`:
     >>> psub('0x100', '0b1111', 'b')
     '0b11110001'
 
-**pir** contains several other elementary arithmetic functions:
+**pirep** contains several other elementary arithmetic functions:
 
     >>> psetmode(True, 8, 'd')
     >>> pmul(3, padd(pdiv('f', '0b100'), prem(11, '0x3')))

@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 """
-[P]ython [I]nteger [R]epresentations & Arithmetic Library
+[P]ython [I]nteger [REP]resentations & Arithmetic Library
 
 Almost all arguments for functions of this module can be decimal,
 hexadecimal ('0x...' or without '0x'), binary ('0b...') or float.
@@ -15,14 +15,6 @@ By default integers are signed, integer width is equal 64
 
 from textwrap import wrap
 import re
-
-"""
-For update:
-
-import sys, importlib
-importlib.reload(sys.modules['pir'])
-from pir import *
-"""
 
 ############################################################
 #                      Representation                      #
@@ -498,7 +490,7 @@ def pintmax(fmt=None):
 #                           Test                           #
 ############################################################
 
-def _testpir():
+def _testpirep():
     s, w, f = pgetmode()
 
     psetmode(True, 64, 'h')
@@ -620,5 +612,5 @@ def _testpir():
     print('Successfully tested')
 
 if __name__ == '__main__':
-    _testpir()
+    _testpirep()
 
