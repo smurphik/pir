@@ -4,10 +4,13 @@
 [P]ython [I]nteger [REP]resentations & Arithmetic Library
 
 Almost all arguments for functions of this module can be decimal,
-hexadecimal ('0x...' or without '0x'), binary ('0b...') or float.
+hexadecimal ('0x...', or without '0x' or 0x...), binary ('0b...',
+0b...) or float.
+
 Arithmetic function results format is hexadecimal by default
 (you can change this by calling the function `psetmode()` or
 with the optional parameter `fmt` for almost any function).
+Hexadecimal/binary output format is string with prefix '0x'/'0b'.
 
 By default integers are signed, integer width is equal 64
 (you can change this by calling the function `psetmode()`).
@@ -61,14 +64,13 @@ def pgetmode():
     return [_is_signed, _int_width, _out_format]
 
 
-def pint(a):
+def str2int(a):
     """Convert {float, int, hex, bin} -> int"""
 
     if isinstance(a, str):
 
         # Remove all spaces
-        if isinstance(a, str):
-            a = re.sub(r'\s+', '', a)
+        a = re.sub(r'\s+', '', a)
 
         if a[:2] == '0b' or a[:3] == '-0b':
             return int(a, 2)
@@ -81,7 +83,8 @@ def pint(a):
 def inconv(a):
     """Convert {float, int, hex, bin} -> int;
     value is truncated to the integer width"""
-    x = pint(a)
+
+    x = str2int(a)
 
     # Truncate
     x &= ((1 << _int_width)-1)
@@ -96,6 +99,7 @@ def inconv(a):
 def outconv(x, fmt=None):
     """Convert positive decimal value according to format `fmt` (if it's given)
     or default format `_out_format` (see `setoutformat()`)"""
+
     assert isinstance(x, int)
     assert x >= 0
     if fmt:
@@ -122,7 +126,7 @@ def c2repr(val, fmt=None):
     >>> c2repr(-1, 'd')
     15"""
 
-    x = pint(val)
+    x = str2int(val)
 
     # Truncate
     x &= ((1 << _int_width)-1)
@@ -141,7 +145,7 @@ def c2repr(val, fmt=None):
     return outconv(x, fmt)
 
 
-def prepr(val, ends=(), fmt=None):
+def decomp(val, ends=(), fmt=None):
     """Get bitwise representation of integer `val` by bytes (if list `ends`
     is empty) or by fields (if list `ends` determine boarders of fields).
 
@@ -149,21 +153,21 @@ def prepr(val, ends=(), fmt=None):
     ends - list of last bit numbers of every field;
     fmt  - format of output ('d', 'h', 'b' or 'f')
 
-    >>> prepr(3932166)
+    >>> decomp(3932166)
     ['00111100', '00000000', '00000110']
 
-    >>> prepr(3932166, fmt='b')
+    >>> decomp(3932166, fmt='b')
     ['0b111100', '0b0', '0b110']
 
-    >>> prepr(3932166, (22, 17, 15, 13, 7))
+    >>> decomp(3932166, (22, 17, 15, 13, 7))
     ['01111', '00', '00', '000000', '00000110']
 
-    >>> prepr(3932166, (7, 13, 15, 17, 22), 'h')
+    >>> decomp(3932166, (7, 13, 15, 17, 22), 'h')
     ['0xf', '0x0', '0x0', '0x0', '0x6']"""
 
     # For convenience reverse bitwise representation
-    rev_val = c2repr(pint(val), 'b')[-1:1:-1]
-    #rev_val = bin(pint(val))[-1:1:-1]
+    rev_val = c2repr(str2int(val), 'b')[-1:1:-1]
+    #rev_val = bin(str2int(val))[-1:1:-1]
 
     if not ends:
         # Just split representation by bytes
@@ -213,13 +217,13 @@ class Field:
             return '{}{}{}'.format(self.fend, '-'*dash_num, self.fbeg)
 
     def add_verbose(self, fvalue, fvalue_name):
-        self.verbose[pint(fvalue)] = fvalue_name
+        self.verbose[str2int(fvalue)] = fvalue_name
 
     def add_invalid(self, fvalue):
-        self.invalid.add(pint(fvalue))
+        self.invalid.add(str2int(fvalue))
 
     def add_only_true(self, fvalue):
-        self.only_true.add(pint(fvalue))
+        self.only_true.add(str2int(fvalue))
 
 
 class Enc:
@@ -252,18 +256,18 @@ class Enc:
                 return f
 
 
-def vrepr(val, enc, fmt=None, borders=False, ret_string=False):
+def decode(val, enc, fmt=None, borders=False, ret_string=False):
     """
     Consider the code `1700040f` of Sparc operation `sethi` for example:
 
       >>> e = Enc('sethi', (('opc', 31), ('rd', 29),
                             ('opc', 24), ('imm22', 21)))
-      >>> vrepr('1700040f', e, borders=True)
+      >>> decode('1700040f', e, borders=True)
        opc     rd    opc           imm22
         00   01011   100   0000000000010000001111
       31-30  29-25  24-22  21-------------------0
 
-      >>> vrepr('17 00 04 0f', e)
+      >>> decode('17 00 04 0f', e)
       opc    rd   opc          imm22
        00  01011  100  0000000000010000001111
 
@@ -273,13 +277,13 @@ def vrepr(val, enc, fmt=None, borders=False, ret_string=False):
       >>> e.field(('rd', 29)).add_verbose(8, 'eight')
       >>> e.field(('rd', 29)).add_verbose(9, 'nine')
 
-      >>> vrepr('1700040f', e, 'h')
+      >>> decode('1700040f', e, 'h')
       opc   rd  opc  imm22
       0x0  0xb  0x4  0x40f
 
     Spoil code to see error message and verbose value of field `rd`:
 
-      >>> vrepr(psetbits('1700040f', (25, 30), '0b101000'), e, 'h')
+      >>> decode(psetbits('1700040f', (25, 30), '0b101000'), e, 'h')
       opc   rd  opc  imm22
       0x1  0x8  0x4  0x40f
 
@@ -290,7 +294,7 @@ def vrepr(val, enc, fmt=None, borders=False, ret_string=False):
 
     # Collect data
     fields = list(enc)[::-1]
-    decomp = prepr(val, (x.fend for x in fields), fmt)
+    decomp_ = decomp(val, (x.fend for x in fields), fmt)
 
     # Calc minimum lengths of borders strings
     if borders:
@@ -300,40 +304,40 @@ def vrepr(val, enc, fmt=None, borders=False, ret_string=False):
 
     # Calc lengths of fields strings
     str_lens = []
-    for f, d, bl in zip(fields, decomp, bord_str_lens):
+    for f, d, bl in zip(fields, decomp_, bord_str_lens):
         str_lens.append(max(len(f.fname), bl, len(str(d))))
 
     # Make output string
     s = ['  '.join(f.fname.center(l) for f, l in zip(fields, str_lens))]
-    s += ['  '.join(str(d).center(l) for d, l in zip(decomp, str_lens))]
+    s += ['  '.join(str(d).center(l) for d, l in zip(decomp_, str_lens))]
     if borders:
         s += ['  '.join(f.borders(l) for f, l in zip(fields, str_lens))]
     s = '\n'.join(s)
 
     if fmt:
         # Any -> int
-        decomp_int = [pint(d) for d in decomp]
+        decomp_int = [str2int(d) for d in decomp_]
     else:
         # Binary without leading '0b' -> int
-        decomp_int = [int(d, 2) for d in decomp]
+        decomp_int = [int(d, 2) for d in decomp_]
         fmt = 'b'
 
     # Check only true
-    for f, i, d in zip(fields, decomp_int, decomp):
+    for f, i, d in zip(fields, decomp_int, decomp_):
         if f.only_true and i not in f.only_true:
             s += '\n\nError! Wrong code: {} = {}'.format(f, d)
             s += '\nValid codes: {}'.format(', '.join(str(outconv(x, fmt))
                                                       for x in f.only_true))
 
     # Check invalids
-    for f, i, d in zip(fields, decomp_int, decomp):
+    for f, i, d in zip(fields, decomp_int, decomp_):
         if i in f.invalid:
             s += '\n\nError! Invalid value: {} = {}'.format(f, d)
 
     # Over encoding warning
     last_bit = fields[0].fend
     mask = pmask(0, last_bit)
-    remainder = pint(prs(psub(val, pand(val, mask)), last_bit+1))
+    remainder = str2int(prs(psub(val, pand(val, mask)), last_bit+1))
     if remainder:
         s += '\n\nWarning! There are significant bits higher than' \
              ' {}: {}'.format(last_bit, outconv(remainder, fmt))
@@ -417,6 +421,7 @@ def pmask(l, h, fmt=None):
 
     >>> pmask(1, 3, 'b')
     '0b1110'"""
+
     return c2repr(((-1) << inconv(l)) & (~((-1) << (inconv(h)+1))), fmt)
 
 
@@ -435,6 +440,7 @@ def pgetbits(a, r, fmt=None):
 
     >>> pgetbits(694, (3, 7), 'b')
     '0b10110'"""
+
     if isinstance(r, int):
         return c2repr((inconv(a) & (1<<r)) >> r, fmt)
     else:
@@ -455,6 +461,7 @@ def psetbits(a, r, v=-1, fmt=None):
 
     >>> psetbits(694, (2, 7), '0b010101', 'b')
     '0b1001010110'"""
+
     if isinstance(r, int):
         v_mask = 1 << r
         return c2repr((inconv(a) & (~v_mask))
@@ -472,6 +479,7 @@ def pdropbits(a, r, fmt=None):
 
 def pintmin(fmt=None):
     """Get minimum integer according to current mode"""
+
     if _is_signed:
         return c2repr(1 << (_int_width-1), fmt)
     else:
@@ -480,6 +488,7 @@ def pintmin(fmt=None):
 
 def pintmax(fmt=None):
     """Get maximum integer according to current mode"""
+
     if _is_signed:
         return c2repr(~(1 << (_int_width-1)), fmt)
     else:
@@ -494,16 +503,16 @@ def _testpirep():
     s, w, f = pgetmode()
 
     psetmode(True, 64, 'h')
-    assert ( prepr(3932166) == ['00111100', '00000000', '00000110'] )
-    assert ( prepr('0x3c0006') == ['00111100', '00000000', '00000110'] )
-    assert ( prepr('3c0006') == ['00111100', '00000000', '00000110'] )
-    assert ( prepr('0b1111000000000000000110')
+    assert ( decomp(3932166) == ['00111100', '00000000', '00000110'] )
+    assert ( decomp('0x3c0006') == ['00111100', '00000000', '00000110'] )
+    assert ( decomp('3c0006') == ['00111100', '00000000', '00000110'] )
+    assert ( decomp('0b1111000000000000000110')
              == ['00111100', '00000000', '00000110'] )
-    assert ( prepr(3932166.) == ['00111100', '00000000', '00000110'] )
-    assert ( prepr(3932166, (7, 13, 15, 17, 22))
+    assert ( decomp(3932166.) == ['00111100', '00000000', '00000110'] )
+    assert ( decomp(3932166, (7, 13, 15, 17, 22))
              == ['01111', '00', '00', '000000', '00000110'] )
-    assert ( prepr(3932166, fmt='b') == ['0b111100', '0b0', '0b110'] )
-    assert ( prepr(3932166, (7, 13, 15, 17, 22), 'h')
+    assert ( decomp(3932166, fmt='b') == ['0b111100', '0b0', '0b110'] )
+    assert ( decomp(3932166, (7, 13, 15, 17, 22), 'h')
              == ['0xf', '0x0', '0x0', '0x0', '0x6'] )
     assert ( psub('0b100000', padd('a', 11)) == '0xb' )
     psetmode(fmt='b')
@@ -556,10 +565,10 @@ def _testpirep():
     assert ( pinv(0) == '0xff' and pinv(1) == '0xfe' and pinv(-2) == '0x1' )
     psetmode(width=64)
     e = Enc('sethi', (('opc', 31), ('rd', 29), ('opc', 24), ('imm22', 21)))
-    s = '\n'.join((vrepr('17 00 04 0f', e, ret_string=True),
-                   vrepr('1700040f', e, 'h', ret_string=True),
-                   vrepr('1700040f', e, 'd', ret_string=True),
-                   vrepr('1700040f', e, borders=True, ret_string=True)))
+    s = '\n'.join((decode('17 00 04 0f', e, ret_string=True),
+                   decode('1700040f', e, 'h', ret_string=True),
+                   decode('1700040f', e, 'd', ret_string=True),
+                   decode('1700040f', e, borders=True, ret_string=True)))
     assert ( s == '\n'.join(('opc    rd   opc          imm22         ', 
                              ' 00  01011  100  0000000000010000001111',
                              'opc   rd  opc  imm22',
@@ -574,9 +583,9 @@ def _testpirep():
     e.field(('opc', 31)).add_invalid(1.)
     e.field(('rd', 29)).add_invalid(1.)
     e.field(('imm22', 21)).add_verbose('0b100', 'four')
-    s = '\n'.join((vrepr('1700040f', e, ret_string=True),
-                   vrepr(padd('1700040f', 5<<30), e, ret_string=True),
-                   vrepr(padd('1700040f', 7<<31), e, ret_string=True)))
+    s = '\n'.join((decode('1700040f', e, ret_string=True),
+                   decode(padd('1700040f', 5<<30), e, ret_string=True),
+                   decode(padd('1700040f', 7<<31), e, ret_string=True)))
     assert ( s == '\n'.join(('opc    rd   opc          imm22         ',
                              ' 00  01011  100  0000000000010000001111',
                              '\nopc[24:22]:   four',
@@ -596,14 +605,14 @@ def _testpirep():
                                                         ' higher than 31: 0b11',
                              '\nopc[24:22]:   four')) )
     e = Enc('someth', (('d', 7), ('ccccc', 4), ('B', 3), ('A', 0)))
-    s = vrepr('a5', e, ret_string=True)
+    s = decode('a5', e, ret_string=True)
     assert ( s == '\n'.join((' d   ccccc   B   A',
                              '101    0    010  1')) )
-    assert len(prepr(-13)) == 8
-    assert prepr(-13)[-1] == '11110011'
-    assert prepr(-13)[-2] == prepr(-13)[0] == '11111111'
+    assert len(decomp(-13)) == 8
+    assert decomp(-13)[-1] == '11110011'
+    assert decomp(-13)[-2] == decomp(-13)[0] == '11111111'
     e = Enc('bla-bla', (('long_long_name', 31), ('oth_name', 30)))
-    s = vrepr(151330522, e, borders=True, ret_string=True)
+    s = decode(151330522, e, borders=True, ret_string=True)
     assert s == '\n'.join(('long_long_name              oth_name           ',
                            '      0         0001001000001010001111011011010',
                            '      31        30----------------------------0'))
