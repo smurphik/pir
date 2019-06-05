@@ -20,7 +20,7 @@ The integer arguments of almost all functions can be of any of 4 formats:
 * **binary** &mdash; string with prefix `'0b'` (`'0b010110'`, `'0b0'`, ...) or usual `0b...` integers;
 * **float** &mdash; usual python float (Why not? `0.0`, `17.`, `-3.`, ...).
 
-You can globally specify the default output format for arithmetic functions by call `psetmode` or locally for each interface (by their parameter `fmt`). Hexadecimal / binary output format is string with prefix `'0x'` / `'0b'`.
+You can globally specify the default output format for arithmetic functions by call `psetmode()` or locally for each interface (by their parameter `fmt`). Hexadecimal / binary output format is string with prefix `'0x'` / `'0b'`.
 
 ### Representations
 
@@ -51,7 +51,7 @@ Meaning of `decomp` by example. The operation `sethi  %hi(0x103c00), %o3` (see S
 Why `'0x40f'` and not `0x103c00`? It's ok. `sethi` sets just 22 high bits:
 
     # Left shift
-    >>> pls('0x40f', 10)
+    >>> psll('0x40f', 10)
     '0x103c00'
 
 We could just decompose any integer by bytes:
@@ -81,7 +81,7 @@ It is convenient to have a separate module that contains all the encodings you o
 
 ### Arithmetic
 
-You can globally specify the signedness and the integer width by `psetmode`:
+You can globally specify the signedness and the integer width by `psetmode()`:
 
     >>> from pirep import *
 

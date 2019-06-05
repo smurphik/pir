@@ -80,7 +80,7 @@ def str2int(a):
         return int(a)
 
 
-def inconv(a):
+def _inconv(a):
     """Convert {float, int, hex, bin} -> int;
     value is truncated to the integer width"""
 
@@ -96,7 +96,7 @@ def inconv(a):
     return x
 
 
-def outconv(x, fmt=None):
+def _outconv(x, fmt=None):
     """Convert positive decimal value according to format `fmt` (if it's given)
     or default format `_out_format` (see `setoutformat()`)"""
 
@@ -139,10 +139,10 @@ def c2repr(val, fmt=None):
         assert fmt in ('d', 'f', 'h', 'b')
 
         if x >= (1 << (_int_width-1)) and fmt in ('d', 'f'):
-            return -outconv((1 << _int_width) - x, fmt)
+            return -_outconv((1 << _int_width) - x, fmt)
 
     # Usual formated output
-    return outconv(x, fmt)
+    return _outconv(x, fmt)
 
 
 def decomp(val, ends=(), fmt=None):
@@ -185,7 +185,7 @@ def decomp(val, ends=(), fmt=None):
         y = y[::-1]
 
     if fmt:
-        return [outconv(int(x, 2), fmt) for x in y]
+        return [_outconv(int(x, 2), fmt) for x in y]
     else:
         return y
 
@@ -326,7 +326,7 @@ def decode(val, enc, fmt=None, borders=False, ret_string=False):
     for f, i, d in zip(fields, decomp_int, decomp_):
         if f.only_true and i not in f.only_true:
             s += '\n\nError! Wrong code: {} = {}'.format(f, d)
-            s += '\nValid codes: {}'.format(', '.join(str(outconv(x, fmt))
+            s += '\nValid codes: {}'.format(', '.join(str(_outconv(x, fmt))
                                                       for x in f.only_true))
 
     # Check invalids
@@ -337,10 +337,10 @@ def decode(val, enc, fmt=None, borders=False, ret_string=False):
     # Over encoding warning
     last_bit = fields[0].fend
     mask = pmask(0, last_bit)
-    remainder = str2int(prs(psub(val, pand(val, mask)), last_bit+1))
+    remainder = str2int(psrl(psub(val, pand(val, mask)), last_bit+1))
     if remainder:
         s += '\n\nWarning! There are significant bits higher than' \
-             ' {}: {}'.format(last_bit, outconv(remainder, fmt))
+             ' {}: {}'.format(last_bit, _outconv(remainder, fmt))
 
     # Check verbose values
     vs = '\n'
@@ -363,57 +363,57 @@ def decode(val, enc, fmt=None, borders=False, ret_string=False):
 
 def padd(a1, a2, fmt=None):
     """Sum of integers"""
-    return c2repr(inconv(a1) + inconv(a2), fmt)
+    return c2repr(_inconv(a1) + _inconv(a2), fmt)
 
 
 def psub(a1, a2, fmt=None):
     """Subtraction of integers"""
-    return c2repr(inconv(a1) - inconv(a2), fmt)
+    return c2repr(_inconv(a1) - _inconv(a2), fmt)
 
 
 def pmul(a1, a2, fmt=None):
     """Multiplication of integers"""
-    return c2repr(inconv(a1) * inconv(a2), fmt)
+    return c2repr(_inconv(a1) * _inconv(a2), fmt)
 
 
 def pdiv(a1, a2, fmt=None):
     """Division of integers"""
-    return c2repr(inconv(a1) // inconv(a2), fmt)
+    return c2repr(_inconv(a1) // _inconv(a2), fmt)
 
 
 def pdivf(a1, a2):
     """Division of integers with float result"""
-    return inconv(a1) / inconv(a2)
+    return _inconv(a1) / _inconv(a2)
 
 
 def prem(a1, a2, fmt=None):
     """Remainder of the division of integers"""
-    return c2repr(inconv(a1) % inconv(a2), fmt)
+    return c2repr(_inconv(a1) % _inconv(a2), fmt)
 
 
-def pls(a, i, fmt=None):
+def psll(a, i, fmt=None):
     """Logical left shift of integers"""
-    return c2repr(inconv(a) << inconv(i), fmt)
+    return c2repr(_inconv(a) << _inconv(i), fmt)
 
 
-def prs(a, i, fmt=None):
+def psrl(a, i, fmt=None):
     """Logical right shift of integers"""
-    return c2repr(inconv(a) >> inconv(i), fmt)
+    return c2repr(_inconv(a) >> _inconv(i), fmt)
 
 
 def pand(a1, a2, fmt=None):
     """Bitwise AND"""
-    return c2repr(inconv(a1) & inconv(a2), fmt)
+    return c2repr(_inconv(a1) & _inconv(a2), fmt)
 
 
 def por(a1, a2, fmt=None):
     """Bitwise OR"""
-    return c2repr(inconv(a1) | inconv(a2), fmt)
+    return c2repr(_inconv(a1) | _inconv(a2), fmt)
 
 
 def pxor(a1, a2, fmt=None):
     """Bitwise XOR"""
-    return c2repr(inconv(a1) ^ inconv(a2), fmt)
+    return c2repr(_inconv(a1) ^ _inconv(a2), fmt)
 
 
 def pmask(l, h, fmt=None):
@@ -422,7 +422,7 @@ def pmask(l, h, fmt=None):
     >>> pmask(1, 3, 'b')
     '0b1110'"""
 
-    return c2repr(((-1) << inconv(l)) & (~((-1) << (inconv(h)+1))), fmt)
+    return c2repr(((-1) << _inconv(l)) & (~((-1) << (_inconv(h)+1))), fmt)
 
 
 def pinv(a, fmt=None):
@@ -442,9 +442,9 @@ def pgetbits(a, r, fmt=None):
     '0b10110'"""
 
     if isinstance(r, int):
-        return c2repr((inconv(a) & (1<<r)) >> r, fmt)
+        return c2repr((_inconv(a) & (1<<r)) >> r, fmt)
     else:
-        return c2repr((inconv(a) & pmask(r[0], r[1], 'd')) >> r[0], fmt)
+        return c2repr((_inconv(a) & pmask(r[0], r[1], 'd')) >> r[0], fmt)
 
 
 def psetbits(a, r, v=-1, fmt=None):
@@ -464,12 +464,12 @@ def psetbits(a, r, v=-1, fmt=None):
 
     if isinstance(r, int):
         v_mask = 1 << r
-        return c2repr((inconv(a) & (~v_mask))
-                      | (inconv(v) << r) & v_mask, fmt)
+        return c2repr((_inconv(a) & (~v_mask))
+                      | (_inconv(v) << r) & v_mask, fmt)
     else:
         v_mask = pmask(r[0], r[1], 'd')
-        return c2repr((inconv(a) & (~v_mask))
-                      | (inconv(v) << r[0]) & v_mask, fmt)
+        return c2repr((_inconv(a) & (~v_mask))
+                      | (_inconv(v) << r[0]) & v_mask, fmt)
 
 
 def pdropbits(a, r, fmt=None):
