@@ -145,6 +145,13 @@ def c2repr(val, fmt=None):
     return _outconv(x, fmt)
 
 
+def c2drepr(val):
+    """Convert {float, int, hex, bin} -> int;
+    value is truncated to the integer width.
+    Equivalent of function call c2repr(val, fmt='d')"""
+    return _inconv(val)
+
+
 def decomp(val, ends=(), fmt=None):
     """Get bitwise representation of integer `val` by bytes (if list `ends`
     is empty) or by fields (if list `ends` determine boarders of fields).
@@ -247,7 +254,7 @@ class Enc:
     def __iter__(self):
         for x in self.fields:
             yield x
-        raise StopIteration
+        return
 
     def field(self, fname_lbit):
         for f in self.fields:
@@ -499,7 +506,7 @@ def pintmax(fmt=None):
 #                           Test                           #
 ############################################################
 
-def _testpirep():
+def test_pirep():
     s, w, f = pgetmode()
 
     psetmode(True, 64, 'h')
@@ -617,9 +624,18 @@ def _testpirep():
                            '      0         0001001000001010001111011011010',
                            '      31        30----------------------------0'))
 
+    psetmode(True, 3, 'b')
+    for i in range(-30, 30):
+        assert c2drepr(i) == _inconv(i)
+        assert c2drepr(i) == c2repr(i, 'd')
+    psetmode(False, 3, 'b')
+    for i in range(-30, 30):
+        assert c2drepr(i) == _inconv(i)
+        assert c2drepr(i) == c2repr(i, 'd')
+
     psetmode(s, w, f)
     print('Successfully tested')
 
 if __name__ == '__main__':
-    _testpirep()
+    test_pirep()
 
