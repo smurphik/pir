@@ -30,7 +30,7 @@ def read(fname):
 setup(
     name = 'pirep',
     fullname = 'Python Integer Representations & Arithmetic Library',
-    version = '0.0.1',
+    version = '0.0.2',
     author = 'Denis Stepnov',
     author_email = 'stepnovdenis@gmail.com',
     url = 'https://github.com/smurphik/pirep',

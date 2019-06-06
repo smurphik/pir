@@ -503,10 +503,18 @@ def pintmax(fmt=None):
 
 
 ############################################################
+# Prevent importing re, wrap and test_pir by `from pirep import *`
+############################################################
+__all__ = [i for i in dir() if not i.startswith('_')]
+__all__.remove('re')
+__all__.remove('wrap')
+
+
+############################################################
 #                           Test                           #
 ############################################################
 
-def test_pirep():
+def test_module():
     s, w, f = pgetmode()
 
     psetmode(True, 64, 'h')
@@ -637,5 +645,5 @@ def test_pirep():
     print('Successfully tested')
 
 if __name__ == '__main__':
-    test_pirep()
+    test_module()
 
